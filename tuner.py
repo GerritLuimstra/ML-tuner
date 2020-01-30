@@ -1,3 +1,4 @@
+from datetime import datetime
 import pandas as pd
 import numpy as np
 import sys
@@ -13,6 +14,7 @@ from skopt import gp_minimize, forest_minimize, gbrt_minimize
 from skopt.space import *
 import warnings
 from pprint import pprint
+import os
 
 def bayesian_optimization(model_info, X, y):
     """
@@ -135,6 +137,8 @@ X = pd.read_csv(sys.argv[2])
 y = pd.read_csv(sys.argv[3])
 y = y[y.columns[0]]
 
+model_output = {}
+
 # Go over each model and tune it
 for model_name in models:
     
@@ -149,5 +153,12 @@ for model_name in models:
     pprint(optimal_paramaters)
     print("OPTIMAL SCORE ", score)
     
-        
-        
+    model_output[model_name] = {"optimal_params": optimal_paramaters, "score": score}
+
+# Output the model output
+try:
+    os.stat("tuning_output")
+except:
+    os.mkdir("tuning_output")
+with open("tuning_output/{}".format(datetime.now().strftime("tuning_output_%d-%m-%Y %H:%M")), "w+") as file:
+    file.write(str(model_output))
