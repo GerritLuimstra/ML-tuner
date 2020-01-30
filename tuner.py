@@ -99,7 +99,41 @@ def exhaustive_optimization(model_info, X, y):
     search = search.fit(X, y)
     
     return search.best_params_, search.best_score_
+
+def create_models_from_file(file_location):
+    """
+        Given a file location, obtains the associated models and initializes it with the optimal parameters from that file
+        
+        :param string file_location : The file location of the config file
+    """
     
+    # Note that this is not very secure.
+    model_info = eval(open(file_location).read())
+    
+    models = {}
+    
+    # Initiallize each model with the optimal parameters
+    for model_name in model_info:
+        models[model_name] = eval(model_info[model_name]["base"])(**model_info[model_name]["optimal_params"])
+    
+    return models
+    
+def create_and_fit_models_from_file(file_location, X, y):
+    """
+        Given a file location, obtains the associated models and initializes it with the optimal parameters from that file
+        In addition also fits the models on the given data
+        
+        :param string file_location : The file location of the config file
+    """
+    
+    # Obtain the models from file
+    models = create_models_from_file(file_location)
+    
+    # Fit each model on the given data
+    for model_name in models:
+        models[model_name].fit(X, y)
+        
+    return models
     
 def tune(model_name, model_info, X, y, tune=False):
     """
@@ -125,40 +159,42 @@ def tune(model_name, model_info, X, y, tune=False):
     # This model does not want to be tuned
     return None
 
-if len(sys.argv) != 4:
-    print("ERROR: Not enough parameters given. Usage: tuner.py <path to model info configuration file> <path to training features csv> <path to training labels csv>")
-    exit(0)
+if __name__ == "__main__":
 
-warnings.filterwarnings("ignore", category=FutureWarning)
-    
-# Obtain the required information
-models = eval(open(sys.argv[1]).read())
-X = pd.read_csv(sys.argv[2])
-y = pd.read_csv(sys.argv[3])
-y = y[y.columns[0]]
+    if len(sys.argv) != 4:
+        print("ERROR: Not enough parameters given. Usage: tuner.py <path to model info configuration file> <path to training features csv> <path to training labels csv>")
+        exit(0)
 
-model_output = {}
+    warnings.filterwarnings("ignore", category=FutureWarning)
 
-# Go over each model and tune it
-for model_name in models:
-    
-    # Skip models that should not be tuned
-    if models[model_name]["tuning"]["preference"] is None:
-        continue
-    
-    print()
-    print("TUNING :", model_name)
-    optimal_paramaters, score = tune(model_name, models[model_name], X, y)
-    print("OPTIMAL PARAMETERS")
-    pprint(optimal_paramaters)
-    print("OPTIMAL SCORE ", score)
-    
-    model_output[model_name] = {"optimal_params": optimal_paramaters, "score": score}
+    # Obtain the required information
+    models = eval(open(sys.argv[1]).read())
+    X = pd.read_csv(sys.argv[2])
+    y = pd.read_csv(sys.argv[3])
+    y = y[y.columns[0]]
 
-# Output the model output
-try:
-    os.stat("tuning_output")
-except:
-    os.mkdir("tuning_output")
-with open("tuning_output/{}".format(datetime.now().strftime("tuning_output_%d-%m-%Y %H:%M")), "w+") as file:
-    file.write(str(model_output))
+    model_output = {}
+
+    # Go over each model and tune it
+    for model_name in models:
+
+        # Skip models that should not be tuned
+        if models[model_name]["tuning"]["preference"] is None:
+            continue
+
+        print()
+        print("TUNING :", model_name)
+        optimal_paramaters, score = tune(model_name, models[model_name], X, y)
+        print("OPTIMAL PARAMETERS")
+        pprint(optimal_paramaters)
+        print("OPTIMAL SCORE ", score)
+        
+        model_output[model_name] = {"optimal_params": optimal_paramaters, "score": score, "base": models[model_name]["base"]().__class__.__name__}
+
+    # Output the model output
+    try:
+        os.stat("tuning_output")
+    except:
+        os.mkdir("tuning_output")
+    with open("tuning_output/{}".format(datetime.now().strftime("tuning_output_%d-%m-%Y %H:%M")), "w+") as file:
+        file.write(str(model_output))
